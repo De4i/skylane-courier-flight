@@ -33,8 +33,11 @@ export function stageShot(name, app) {
   const shot = name || 'cover';
   if (shot === 'takeoff') {
     // Mission 2, on the home runway: full throttle, rotate and climb.
+    // 8 s, not 6: at 6 s she is still rotating hard and the chase camera
+    // sits below her, so the wings read as thin lines; at 8 s the climb
+    // has levelled and the plane reads from behind-above.
     app.startMission(1, 'runway');
-    const steps = Math.round(6 / STEP);
+    const steps = Math.round(8 / STEP);
     for (let i = 0; i < steps; i += 1) {
       app.stepFixed({ throttleAxis: 1, bankAxis: 0, pitchAxis: i > 150 ? 0.55 : 0, boost: false });
     }
@@ -65,10 +68,12 @@ export function stageShot(name, app) {
     }
     return 'Ring Trial';
   }
-  // Cover: mission 1, flown to the fourth ring so a glowing ring, the
-  // islands and sea, and the far runway island all sit in frame.
+  // Cover: mission 1, flown toward the fourth ring so a glowing ring, the
+  // islands and sea, and the far runway island all sit in frame. 16 s, not
+  // 17: at 17 s the camera is on top of the ring and its halo whites out
+  // the sky; a second earlier the whole ring sits ahead in frame.
   app.startMission(0, 'runway');
-  const steps = Math.round(17 / STEP);
+  const steps = Math.round(16 / STEP);
   for (let i = 0; i < steps; i += 1) {
     app.stepFixed(autopilotInput(app.flight, app.currentTarget()));
   }

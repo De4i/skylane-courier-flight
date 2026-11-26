@@ -15,22 +15,59 @@ function lambert(colour) {
   return new THREE.MeshLambertMaterial({ color: colour });
 }
 
+/** A radial-gradient glow texture, generated at runtime (no external file). */
+function makeGlowTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createRadialGradient(64, 64, 2, 64, 64, 64);
+  // Tight falloff: the old gradient stayed half-bright out to a third of
+  // the sprite, so every ring halo read as a solid white disc.
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.18, 'rgba(255,255,255,0.28)');
+  grad.addColorStop(0.55, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(canvas);
+}
+
 export function createRenderer(canvas, terrain) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputEncoding = THREE.sRGBEncoding;
+  // Filmic tone mapping for a rich, non-washed-out picture, and real
+  // shadows from the low sun so the world has depth.
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(PALETTE.skyTop ? 0x87bfe8 : 0x87bfe8);
+  scene.background = new THREE.Color(0x87bfe8);
   scene.fog = new THREE.Fog(new THREE.Color(WORLD.fogColour).getHex(), WORLD.fogNear, WORLD.fogFar);
   scene.add(terrain.group);
 
-  const ambient = new THREE.AmbientLight(0xffffff, 0.55);
-  scene.add(ambient);
-  const sunLight = new THREE.DirectionalLight(0xfff2cc, 1.05);
-  sunLight.position.set(-1500, 900, -1900);
+  // Hemisphere light: blue sky from above, warm ground bounce from below.
+  const hemi = new THREE.HemisphereLight(0xbfd9f2, 0x4a7a52, 0.85);
+  scene.add(hemi);
+  // The sun: warm directional light with a shadow camera that follows
+  // the plane, so the plane's shadow stays in frame wherever she flies.
+  const sunDir = new THREE.Vector3(-1500, 620, -1900).normalize();
+  const sunLight = new THREE.DirectionalLight(0xffeecf, 1.5);
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.set(2048, 2048);
+  sunLight.shadow.camera.left = -280;
+  sunLight.shadow.camera.right = 280;
+  sunLight.shadow.camera.top = 280;
+  sunLight.shadow.camera.bottom = -280;
+  sunLight.shadow.camera.near = 100;
+  sunLight.shadow.camera.far = 3600;
+  sunLight.shadow.bias = -0.0004;
+  sunLight.position.copy(sunDir).multiplyScalar(1400);
   scene.add(sunLight);
+  scene.add(sunLight.target);
 
   const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.5, 9000);
   camera.position.set(-30, 20, 0);
@@ -49,6 +86,22 @@ export function createRenderer(canvas, terrain) {
   const ringGeo = new THREE.TorusGeometry(26, 2.2, 10, 28);
   const beaconGeo = new THREE.SphereGeometry(3.2, 10, 8);
   const crateGeo = new THREE.BoxGeometry(6, 6, 6);
+  // One shared glow texture for every ring halo (disposed never: it is
+  // shared for the life of the page, only the sprite materials are freed).
+  const glowTexture = makeGlowTexture();
+  let ringGlows = [];
+
+  function ringGlowMesh(x, y, z, colour) {
+    // A 110 m halo whites out the frame when the camera flies up to a
+    // ring; 70 m still reads as a glow without swallowing the sky.
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTexture, color: colour, transparent: true, opacity: 0.32,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    sprite.position.set(x, y, z);
+    sprite.scale.set(70, 70, 1);
+    return sprite;
+  }
 
   function clearMarkers() {
     scene.remove(markers);
@@ -65,29 +118,42 @@ export function createRenderer(canvas, terrain) {
     padMeshes = [];
     beaconMeshes = [];
     crateMeshes = [];
+    ringGlows = [];
   }
 
   function buildMarkers(mission) {
     clearMarkers();
     for (const ring of mission.rings) {
-      const mesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
-        color: PALETTE.ringGold, transparent: true, opacity: 0.95,
+      // Emissive gold torus plus a soft additive halo, so the ring glows
+      // instead of looking like flat plastic.
+      const mesh = new THREE.Mesh(ringGeo, new THREE.MeshPhongMaterial({
+        color: PALETTE.ringGold, emissive: 0xcc7a00, emissiveIntensity: 0.9,
+        shininess: 60, transparent: true, opacity: 0.98,
       }));
       mesh.position.set(ring.x, ring.y, ring.z);
       mesh.userData.ring = ring;
       markers.add(mesh);
       ringMeshes.push(mesh);
+      const glow = ringGlowMesh(ring.x, ring.y, ring.z, PALETTE.ringGold);
+      glow.userData.ring = ring;
+      markers.add(glow);
+      ringGlows.push(glow);
       // A small floating number plate is too fiddly in 3D; the next ring
       // gets a pulsing halo instead (see animate).
     }
     for (const ring of mission.fuelRings) {
-      const mesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
-        color: PALETTE.ringFuel, transparent: true, opacity: 0.9,
+      const mesh = new THREE.Mesh(ringGeo, new THREE.MeshPhongMaterial({
+        color: PALETTE.ringFuel, emissive: 0x0a7a34, emissiveIntensity: 0.9,
+        shininess: 60, transparent: true, opacity: 0.95,
       }));
       mesh.position.set(ring.x, ring.y, ring.z);
       mesh.userData.ring = ring;
       markers.add(mesh);
       fuelMeshes.push(mesh);
+      const glow = ringGlowMesh(ring.x, ring.y, ring.z, PALETTE.ringFuel);
+      glow.userData.ring = ring;
+      markers.add(glow);
+      ringGlows.push(glow);
     }
     for (const pad of mission.pads) {
       const padGroup = new THREE.Group();
@@ -169,7 +235,19 @@ export function createRenderer(canvas, terrain) {
         look: { x: flight.x + fx * 60, y: flight.y + fy * 60 - 2, z: flight.z + fz * 60 },
       };
     }
-    const pos = { x: flight.x - fx * 24, y: Math.max(3.5, flight.y - fy * 24 + 7.5), z: flight.z - fz * 24 };
+    // 20 m back, 6 m up and 6 m to the side: a three-quarter rear view.
+    // Dead on the axis, the fin and the prop-disc edge line up into one
+    // vertical stick and the fuselage foreshortens to a blob — the exact
+    // toy look this overhaul is removing. Off-axis, her flank, canopy,
+    // cheatline and wing planform all read, and the plane sits just left
+    // of centre with the ring or runway ahead in frame.
+    const rx = -fz;
+    const rz = fx;
+    const pos = {
+      x: flight.x - fx * 20 + rx * 6,
+      y: Math.max(3.5, flight.y - fy * 20 + 6),
+      z: flight.z - fz * 20 + rz * 6,
+    };
     const look = { x: flight.x + fx * 26, y: flight.y + fy * 26 + 1, z: flight.z + fz * 26 };
     if (cameraMode === 'menu') {
       // The menu panel covers the left two-thirds of the screen, so pull the
@@ -233,6 +311,33 @@ export function createRenderer(canvas, terrain) {
       camera.up.normalize();
       camera.lookAt(camLook);
 
+      // Sun shadows follow the plane, so her shadow stays in frame.
+      if (flight) {
+        sunLight.position.set(
+          flight.x + sunDir.x * 1400,
+          flight.y + sunDir.y * 1400,
+          flight.z + sunDir.z * 1400,
+        );
+        sunLight.target.position.set(flight.x, flight.y, flight.z);
+        sunLight.target.updateMatrixWorld();
+      }
+
+      // Rolling waves: displace the sea grid with two slow sine swells.
+      // The sea plane is rotated -PI/2 about X, so its local X is world X
+      // and its local Y is world -Z; local Z is world height.
+      if (terrain.sea && terrain.seaBase) {
+        const pos = terrain.sea.geometry.attributes.position;
+        const base = terrain.seaBase;
+        for (let i = 0; i < pos.count; i += 1) {
+          const wx = base[i * 3];
+          const wz = -base[i * 3 + 1];
+          pos.array[i * 3 + 2] = 1.4 * Math.sin(wx * 0.055 + time * 0.9) * Math.sin(wz * 0.043 - time * 0.7)
+            + 0.8 * Math.sin((wx + wz) * 0.03 + time * 1.3);
+        }
+        pos.needsUpdate = true;
+        terrain.sea.geometry.computeVertexNormals();
+      }
+
       // Marker animation: the next ring pulses and spins slowly; passed
       // rings fade out; beacons bob; crates already rest on the ground.
       const pulse = 1 + Math.sin(time * 3.2) * 0.12;
@@ -245,6 +350,19 @@ export function createRenderer(canvas, terrain) {
           mesh.rotation.y += dt * 0.25;
           const isNext = mission && mission.rings[mission.nextRing] === ring;
           mesh.scale.setScalar(isNext ? pulse : 1);
+        }
+      }
+      // Ring halos pulse with their ring and fade once it is passed.
+      for (const glow of ringGlows) {
+        const ring = glow.userData.ring;
+        if (ring.passed) {
+          glow.material.opacity = Math.max(0.05, glow.material.opacity - dt * 0.8);
+          glow.scale.set(110, 110, 1);
+        } else {
+          const isNext = mission && mission.rings[mission.nextRing] === ring;
+          const s = isNext ? 110 * pulse : 96;
+          glow.scale.set(s, s, 1);
+          glow.material.opacity = isNext ? 0.75 : 0.5;
         }
       }
       for (const mesh of fuelMeshes) {

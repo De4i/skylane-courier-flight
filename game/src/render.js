@@ -50,7 +50,9 @@ export function createRenderer(canvas, terrain) {
   scene.add(terrain.group);
 
   // Hemisphere light: blue sky from above, warm ground bounce from below.
-  const hemi = new THREE.HemisphereLight(0xbfd9f2, 0x4a7a52, 0.85);
+  // 0.7, not 0.85: the stronger fill washed the grass to pale mint and
+  // tinted the white wings green from underneath.
+  const hemi = new THREE.HemisphereLight(0xbfd9f2, 0x4a7a52, 0.7);
   scene.add(hemi);
   // The sun: warm directional light with a shadow camera that follows
   // the plane, so the plane's shadow stays in frame wherever she flies.
@@ -93,13 +95,13 @@ export function createRenderer(canvas, terrain) {
 
   function ringGlowMesh(x, y, z, colour) {
     // A 110 m halo whites out the frame when the camera flies up to a
-    // ring; 70 m still reads as a glow without swallowing the sky.
+    // ring; 64 m still reads as a glow without swallowing the sky.
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
       map: glowTexture, color: colour, transparent: true, opacity: 0.32,
       blending: THREE.AdditiveBlending, depthWrite: false,
     }));
     sprite.position.set(x, y, z);
-    sprite.scale.set(70, 70, 1);
+    sprite.scale.set(64, 64, 1);
     return sprite;
   }
 
@@ -224,6 +226,12 @@ export function createRenderer(canvas, terrain) {
   const camPos = new THREE.Vector3(-30, 20, 0);
   const camLook = new THREE.Vector3(0, 10, 0);
 
+  // Fixed diagnostic camera pose (setDiagPose): when set, it overrides
+  // the chase camera entirely, so a ?shot=diag-* scene can frame the
+  // terrain from any angle instead of from behind the plane.
+
+  let diagPose = null;
+
   /** Where the chase / close camera wants to be for this flight state. */
   function chasePose(flight, cameraMode) {
     const fx = Math.cos(flight.heading) * Math.cos(flight.pitch);
@@ -284,9 +292,13 @@ export function createRenderer(canvas, terrain) {
     addCrate,
     setStorm,
     resize,
+    /** Pin the camera to a fixed diagnostic pose (diag shots only). */
+    setDiagPose(pos, look) {
+      diagPose = { pos: { x: pos.x, y: pos.y, z: pos.z }, look: { x: look.x, y: look.y, z: look.z } };
+    },
     /** Jump the camera straight behind the plane (mission start, shot staging). */
     snap(flight, cameraMode) {
-      const pose = chasePose(flight, cameraMode);
+      const pose = diagPose ?? chasePose(flight, cameraMode);
       camPos.set(pose.pos.x, pose.pos.y, pose.pos.z);
       camLook.set(pose.look.x, pose.look.y, pose.look.z);
     },
@@ -296,8 +308,9 @@ export function createRenderer(canvas, terrain) {
       aircraft.pose(flight, time);
 
       // Camera: chase view sits behind and above the plane; the close view
-      // (C) rides just behind the canopy, cockpit-style.
-      const pose = chasePose(flight, cameraMode);
+      // (C) rides just behind the canopy, cockpit-style. A diagnostic pose
+      // overrides the chase camera outright.
+      const pose = diagPose ?? chasePose(flight, cameraMode);
       const k = cameraMode === 'close' ? 0.5 : 1 - Math.pow(0.001, dt);
       camPos.x += (pose.pos.x - camPos.x) * k;
       camPos.y += (pose.pos.y - camPos.y) * k;
@@ -353,16 +366,18 @@ export function createRenderer(canvas, terrain) {
         }
       }
       // Ring halos pulse with their ring and fade once it is passed.
+      // Kept small and dim: the old 110 m halo at 0.75 opacity white-outed
+      // the centre of the cover shot.
       for (const glow of ringGlows) {
         const ring = glow.userData.ring;
         if (ring.passed) {
           glow.material.opacity = Math.max(0.05, glow.material.opacity - dt * 0.8);
-          glow.scale.set(110, 110, 1);
+          glow.scale.set(88, 88, 1);
         } else {
           const isNext = mission && mission.rings[mission.nextRing] === ring;
-          const s = isNext ? 110 * pulse : 96;
+          const s = isNext ? 88 * pulse : 80;
           glow.scale.set(s, s, 1);
-          glow.material.opacity = isNext ? 0.75 : 0.5;
+          glow.material.opacity = isNext ? 0.55 : 0.4;
         }
       }
       for (const mesh of fuelMeshes) {

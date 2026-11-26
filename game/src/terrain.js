@@ -70,9 +70,9 @@ export function createTerrain(seed) {
 
   // --- islands: analytic hills first, meshes built to match ---
   const islands = [];
-  const home = { x: 0, z: 0, r: 330, h: 26 };
+  const home = { x: 0, z: 0, r: 360, h: 32 };
   islands.push(home);
-  const far = { x: 1500, z: -420, r: 300, h: 22 };
+  const far = { x: 1500, z: -420, r: 340, h: 28 };
   islands.push(far);
   const spots = [
     // 56, not 74: this peak sits beside a Grand Tour cargo pad, and the
@@ -80,12 +80,12 @@ export function createTerrain(seed) {
     // only metres to spare — at 74 m the turn clips the peak, at 56 m
     // either turn direction clears it by a wide margin.
     { x: -780, z: 620, r: 260, h: 56 },
-    { x: 620, z: 820, r: 300, h: 88 },
-    { x: -1250, z: -760, r: 280, h: 64 },
-    { x: 1050, z: -1180, r: 240, h: 52 },
-    { x: -420, z: -1350, r: 260, h: 96 },
-    { x: 1500, z: 700, r: 220, h: 44 },
-    { x: -1600, z: 120, r: 230, h: 58 },
+    { x: 620, z: 820, r: 300, h: 98 },
+    { x: -1250, z: -760, r: 280, h: 74 },
+    { x: 1050, z: -1180, r: 240, h: 62 },
+    { x: -420, z: -1350, r: 260, h: 108 },
+    { x: 1500, z: 700, r: 220, h: 54 },
+    { x: -1600, z: 120, r: 230, h: 68 },
   ];
   for (const spot of spots) islands.push(spot);
 
@@ -102,7 +102,12 @@ export function createTerrain(seed) {
     const d = Math.sqrt(dx * dx + dz * dz);
     if (d >= island.r) return 0;
     const t = d / island.r;
-    return island.h * (0.5 + 0.5 * Math.cos(Math.PI * t)) + 2.5 * (1 - t);
+    // Power 0.7, not a plain cosine: a cosine dome is flat at the
+    // shoreline, so its outer fifth is a near-sea-level shelf the waves
+    // wash over and the eye reads as water. The power curve rises
+    // steeply from the waterline, so the beach is a narrow dry tan band
+    // and the green starts well above the waves.
+    return island.h * Math.pow(0.5 + 0.5 * Math.cos(Math.PI * t), 0.7) + 2.5 * (1 - t);
   }
 
   // Deterministic ridge detail: a few long sine waves per island, fading
@@ -205,7 +210,7 @@ export function createTerrain(seed) {
     const mid = new THREE.Color(0x6fb1e6);
     // Pale blue, not cream: a warm horizon band blew out to white under
     // ACES tone mapping and washed the whole sky out of the cover shot.
-    const horizon = new THREE.Color(0xcfe0f0);
+    const horizon = new THREE.Color(0xbdd8ec);
     const c = new THREE.Color();
     for (let i = 0; i < pos.count; i += 1) {
       const t = clamp01(pos.getY(i) / 4200); // 0 at horizon, 1 at zenith
@@ -222,13 +227,16 @@ export function createTerrain(seed) {
     group.add(sky);
   }
 
-  // --- sea: a fine grid with a sun-glinting Phong surface; the renderer
-  // animates its vertices into slow rolling waves. ---
+  // --- sea: a fine grid with a deep blue surface; the renderer animates
+  // its vertices into slow rolling waves. The specular is deliberately
+  // dim (a bright sun-glint turned the whole sea into a white mirror
+  // streak from the air) and the colour is deep, so water never shares
+  // a value with sand or foam. ---
   const seaGeo = new THREE.PlaneGeometry(WORLD.extent * 3.4, WORLD.extent * 3.4, 150, 150);
   const sea = new THREE.Mesh(
     seaGeo,
     new THREE.MeshPhongMaterial({
-      color: PALETTE.sea, specular: 0xcfe8ff, shininess: 110,
+      color: PALETTE.sea, specular: 0x274b5e, shininess: 40,
     }),
   );
   sea.rotation.x = -Math.PI / 2;
@@ -299,6 +307,13 @@ export function createTerrain(seed) {
         colours.push(c.r, c.g, c.b);
       }
     }
+    // Winding: (a, b, d) / (b, e, d) — inner ring, then outer ring. The
+    // rings run +X toward +Z as the angle grows, so the old order
+    // (a, d, b) wound every dome triangle clockwise seen from above and
+    // its front face pointed DOWN: the whole dome was backface-culled
+    // from the air and the sea showed straight through the island, which
+    // is why every island read as a blue lagoon inside a white foam
+    // ring. This order faces up and out.
     const ringStart = (ring) => 1 + (ring - 1) * SEG;
     for (let s = 0; s < SEG; s += 1) {
       indices.push(0, ringStart(1) + ((s + 1) % SEG), ringStart(1) + s);
@@ -309,7 +324,7 @@ export function createTerrain(seed) {
         const b = ringStart(ring) + ((s + 1) % SEG);
         const d = ringStart(ring + 1) + s;
         const e = ringStart(ring + 1) + ((s + 1) % SEG);
-        indices.push(a, d, b, b, d, e);
+        indices.push(a, b, d, b, e, d);
       }
     }
     // Skirt: a sand cliff from the shoreline down under the water.
@@ -326,7 +341,7 @@ export function createTerrain(seed) {
       const b = ringStart(RINGS) + ((s + 1) % SEG);
       const d = skirtStart + s;
       const e = skirtStart + ((s + 1) % SEG);
-      indices.push(a, d, b, b, d, e);
+      indices.push(a, b, d, b, e, d);
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -342,13 +357,14 @@ export function createTerrain(seed) {
 
     // Foam ring where the waves meet the sand: a thin shoreline line, not
     // a wide halo (the old 10%-wide ring read as a giant white halo from
-    // the air and swamped the bottom of the takeoff shot).
+    // the air and swamped the bottom of the takeoff shot), and a ring,
+    // never a disc: its interior is the island, not more water.
     const foam = new THREE.Mesh(
-      new THREE.RingGeometry(island.r * 0.99, island.r * 1.035, 56),
-      new THREE.MeshBasicMaterial({ color: PALETTE.seaFoam, transparent: true, opacity: 0.3 }),
+      new THREE.RingGeometry(island.r * 1.005, island.r * 1.025, 56),
+      new THREE.MeshBasicMaterial({ color: PALETTE.seaFoam, transparent: true, opacity: 0.22 }),
     );
     foam.rotation.x = -Math.PI / 2;
-    foam.position.set(island.x, 0.7, island.z);
+    foam.position.set(island.x, 0.9, island.z);
     group.add(foam);
 
     // Trees: pines on the high ground, palms down by the beach. Dense

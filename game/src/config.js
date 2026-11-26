@@ -7,10 +7,13 @@ export const STEP = 1 / 60;
 export const WORLD = {
   extent: 1800,          // islands live inside +/- extent on x and z
   seaLevel: 0,
-  fogNear: 900,
-  fogFar: 4200,
+  // Fog starts well past the islands the camera actually looks at: the
+  // old near=900 washed every island past a kilometre toward pale blue,
+  // so land and water met in the same washed-out value.
+  fogNear: 1500,
+  fogFar: 5200,
   skyTop: '#2f6fb8',
-  fogColour: '#c8dcec',
+  fogColour: '#9ec2de',
 };
 
 export const PLANE = {
@@ -56,14 +59,18 @@ export const SCORE = {
 };
 
 export const PALETTE = {
-  sea: 0x1770a8,
-  seaDeep: 0x0f4f7d,
+  // Deep sea, saturated grass, tan sand: land and water must never share
+  // a value. The old sea (0x1770a8) rendered as pale sky-blue (83,168,199)
+  // under the lights and fog, and the old grass (0x58a047) as pale mint —
+  // at 768 px wide the boundary between them was guesswork.
+  sea: 0x0d5c8f,
+  seaDeep: 0x0a4e7d,
   seaFoam: 0xeaf6f0,
-  sand: 0xe2cb96,
-  sandWet: 0xc9ab72,
-  grass: 0x58a047,
-  grassDark: 0x3d7f38,
-  grassLight: 0x7cbb58,
+  sand: 0xd9b878,
+  sandWet: 0xb08d55,
+  grass: 0x37851f,
+  grassDark: 0x2a6628,
+  grassLight: 0x5a9a34,
   hill: 0x6fae52,
   rock: 0x8d8578,
   rockDark: 0x6b655a,
@@ -79,9 +86,9 @@ export const PALETTE = {
   tail: 0xe4572e,
   canopy: 0x1c3d5e,
   prop: 0x222222,
-  pine: 0x2e6b34,
-  pineLight: 0x3a7d3f,
-  palm: 0x4da34a,
+  pine: 0x256b2c,
+  pineLight: 0x2f7d33,
+  palm: 0x3d8f3a,
   trunk: 0x6b4a2a,
   hangarWall: 0xf2ead8,
   hangarRoof: 0x0f6b6e,

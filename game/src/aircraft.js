@@ -124,6 +124,9 @@ export function createAircraft() {
   finShape.lineTo(-1.1, 0.9);
   finShape.quadraticCurveTo(-1.6, 0.5, -1.5, 0);
   const fin = new THREE.Mesh(new THREE.ExtrudeGeometry(finShape, { depth: 0.24, bevelEnabled: false }), orangeMat);
+  // 0.72 scale: the full-size fin was a huge orange triangle that
+  // dominated the whole plane silhouette in the chase view.
+  fin.scale.set(0.72, 0.72, 1);
   fin.position.set(-6.3, 0.6, -0.12);
   fin.rotation.z = 0.12;
   fin.castShadow = true;
@@ -168,15 +171,21 @@ export function createAircraft() {
     prop.add(blade);
   }
   const disc = new THREE.Mesh(
-    new THREE.CircleGeometry(3.15, 28),
+    new THREE.CircleGeometry(3.0, 28),
     new THREE.MeshBasicMaterial({
       // Mid grey-blue, not near-white: edge-on from the chase camera the
       // disc is a thin line below the nose, and a bright line reads as
       // the old prop stick. Faint is correct for a spinning prop.
-      color: 0x7d99ad, transparent: true, opacity: 0.15,
+      color: 0x7d99ad, transparent: true, opacity: 0.12,
       side: THREE.DoubleSide, depthWrite: false,
     }),
   );
+  // The disc must lie in the YZ plane (facing forward, +X): CircleGeometry
+  // is born in the XY plane, and unrotated it spins with the prop group
+  // into a plane that contains the X axis — seen from the chase camera
+  // it projects to a single vertical white stick below the nose, which
+  // is exactly the stick the overhaul was supposed to remove.
+  disc.rotation.y = Math.PI / 2;
   disc.position.x = 0.55;
   disc.name = 'propDisc';
   prop.add(disc);
@@ -234,7 +243,7 @@ export function createAircraft() {
       if (strobeMesh) strobeMesh.visible = Math.sin(time * 6) > 0.85;
       // The blur disc only reads while the prop is turning.
       const discMesh = group.getObjectByName('propDisc');
-      if (discMesh) discMesh.material.opacity = flight.throttle > 0.05 ? 0.18 : 0.08;
+      if (discMesh) discMesh.material.opacity = flight.throttle > 0.05 ? 0.12 : 0.06;
     },
   };
 }

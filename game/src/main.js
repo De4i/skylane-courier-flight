@@ -338,6 +338,8 @@ function runShot(name) {
     stepFixed,
     currentTarget,
     landingTarget,
+    setDiagPose(pos, look) { renderer.setDiagPose(pos, look); },
+    setFlight(patch) { Object.assign(flight, patch); },
     get flight() {
       return flight;
     },

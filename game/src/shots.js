@@ -31,6 +31,25 @@ function clamp(value, min, max) {
  */
 export function stageShot(name, app) {
   const shot = name || 'cover';
+  if (shot === 'diag-top') {
+    // High oblique over the home runway island: does the strip sit on
+    // land, and what do the shoreline, sand band and foam ring really
+    // look like from above? Diagnostic only, not a submitted screenshot.
+    app.startMission(0, 'runway');
+    app.setDiagPose({ x: 520, y: 640, z: 520 }, { x: -40, y: 12, z: -20 });
+    return 'Ring Trial';
+  }
+  if (shot === 'diag-low') {
+    // Low pass at the shoreline of the (1500, 700) island, the one whose
+    // foam ring reads as a pale-blue lagoon in the rings shot.
+    app.startMission(0, 'runway');
+    app.setFlight({
+      x: 980, y: 62, z: 700, heading: 0, pitch: 0, bank: 0,
+      speedKt: 90, throttle: 0.6, airborne: true,
+    });
+    app.setDiagPose({ x: 960, y: 58, z: 700 }, { x: 1500, y: 30, z: 700 });
+    return 'Ring Trial';
+  }
   if (shot === 'takeoff') {
     // Mission 2, on the home runway: full throttle, rotate and climb.
     // 8 s, not 6: at 6 s she is still rotating hard and the chase camera
@@ -68,14 +87,20 @@ export function stageShot(name, app) {
     }
     return 'Ring Trial';
   }
-  // Cover: mission 1, flown toward the fourth ring so a glowing ring, the
-  // islands and sea, and the far runway island all sit in frame. 16 s, not
-  // 17: at 17 s the camera is on top of the ring and its halo whites out
-  // the sky; a second earlier the whole ring sits ahead in frame.
+  // Cover: mission 1, flown gently toward the rings for 9 s. The bank is
+  // clamped so she flies almost level (the old 16 s full-bank run had
+  // her rolled hard sideways with the ring glow white-outing the centre).
+  // 9 s, not 12: at 12 s she is already on top of the second ring and
+  // its torus fills the frame as a yellow wall. A glowing ring ahead,
+  // the home runway island behind, and green islands with a clear
+  // land/water boundary in frame.
   app.startMission(0, 'runway');
-  const steps = Math.round(16 / STEP);
+  const steps = Math.round(9 / STEP);
   for (let i = 0; i < steps; i += 1) {
-    app.stepFixed(autopilotInput(app.flight, app.currentTarget()));
+    const ctl = autopilotInput(app.flight, app.currentTarget());
+    ctl.bankAxis = Math.max(-0.35, Math.min(0.35, ctl.bankAxis));
+    ctl.pitchAxis = Math.max(-0.3, Math.min(0.3, ctl.pitchAxis));
+    app.stepFixed(ctl);
   }
   return 'Ring Trial';
 }

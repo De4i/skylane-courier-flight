@@ -1,4 +1,4 @@
-// Skylane Courier — every tuning number and colour in one place.
+// Bayu — Archipelago Courier — every tuning number and colour in one place.
 // World units are metres; speeds are shown in knots (1 kt = 0.514 m/s).
 // The play area is a 3.6 km archipelago of sea and low-poly islands.
 
@@ -87,4 +87,4 @@ export const PALETTE = {
 export const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 
 /** localStorage key for campaign progress (unlocked missions, best times/scores, medals). */
-export const CAMPAIGN_KEY = 'skylane-courier.campaign.v1';
+export const CAMPAIGN_KEY = 'bayu-archipelago-courier.campaign.v1';

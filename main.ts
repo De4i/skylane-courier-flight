@@ -1,4 +1,4 @@
-// Skylane Courier — the program that hands the game in (Node 22, standard
+// Bayu — Archipelago Courier — the program that hands the game in (Node 22, standard
 // library only). It takes this repository's game/ and screenshots/ folders,
 // copies them into the output directory the grader provides, and writes
 // /output/dossier.json with the vendored make.fun library, which is the
@@ -98,7 +98,7 @@ function main() {
   writeFileSync(join(outputDir, 'dossier.json'), dossier);
 
   console.log(
-    `Skylane Courier handed in: ${gameStats.files} game files (${gameStats.bytes} bytes), ` +
+    `Bayu — Archipelago Courier handed in: ${gameStats.files} game files (${gameStats.bytes} bytes), ` +
     `${shotNames.length} screenshots (${shotNames.join(', ')}), dossier written to ${join(outputDir, 'dossier.json')}`,
   );
 }

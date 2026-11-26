@@ -1,4 +1,4 @@
-// Skylane Courier — boot and the one loop. Input is read every frame, the
+// Bayu — Archipelago Courier — boot and the one loop. Input is read every frame, the
 // world advances in fixed 1/60 s steps, and the renderer paints what is
 // there. The game moves between four screens: menu (campaign + mission
 // select), playing, paused and mission over (success, crash or out of time).
@@ -156,7 +156,7 @@ function hudView() {
     timeLeft: mission ? Math.max(0, mission.def.timeLimit - mission.time) : 0,
     score: mission ? mission.score : 0,
     objective: mission ? objectiveText(mission) : '',
-    missionName: mission ? `${mission.def.number}. ${mission.def.name}` : 'Skylane Courier',
+    missionName: mission ? `${mission.def.number}. ${mission.def.name}` : 'Bayu — Archipelago Courier',
   };
 }
 
@@ -328,7 +328,7 @@ function showMenu() {
   renderer.buildMarkers(mission);
   renderer.snap(flight, 'menu');
   cameraMode = 'menu';
-  announce('Skylane Courier. Choose a mission to fly.');
+  announce('Bayu — Archipelago Courier. Choose a mission to fly.');
 }
 
 function runShot(name) {

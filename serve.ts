@@ -1,5 +1,5 @@
 // A tiny static server for game/ (Node 22, standard library only), a
-// development convenience for playing Skylane Courier locally:
+// development convenience for playing Bayu — Archipelago Courier locally:
 //
 //   node serve.ts            # serves game/ on http://localhost:8080
 //   node serve.ts --port 9000
@@ -66,5 +66,5 @@ const server = createServer((request, response) => {
 });
 
 server.listen(port, '127.0.0.1', () => {
-  console.log(`Skylane Courier: game/ is on http://localhost:${port}`);
+  console.log(`Bayu — Archipelago Courier: game/ is on http://localhost:${port}`);
 });

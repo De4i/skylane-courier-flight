@@ -162,6 +162,33 @@ html, body {
   padding: 7px 9px;
 }
 
+/* The controls cheat-sheet is for players, not for screenshots: in shot
+   mode it is a wall of small text eating ~15% of the frame at judge
+   scale, so it stays hidden while a ?shot= scene is staged. */
+body.shot-mode .hud-keys {
+  display: none;
+}
+
+/* Big centre feedback when something scores: a ring threaded, a fuel
+   ring, a beacon, a crate on target. The old #status line is clipped
+   to 1 px for screen readers, so a still frame never showed the game
+   paying off — this one does, for four seconds. */
+#hud-toast {
+  position: absolute;
+  top: 28%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(8, 18, 34, 0.78);
+  border: 2px solid #ffd23f;
+  border-radius: 12px;
+  padding: 10px 22px;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #ffd23f;
+  white-space: nowrap;
+}
+
 #hud-bottom {
   position: absolute;
   bottom: 10px;

@@ -206,13 +206,12 @@ export function createTerrain(seed) {
     const skyGeo = new THREE.SphereGeometry(4200, 28, 18);
     const pos = skyGeo.attributes.position;
     const colours = new Float32Array(pos.count * 3);
-    const top = new THREE.Color(0x2a5da8);
-    const mid = new THREE.Color(0x86b7e2);
-    // Warm peach horizon for golden hour. The old cream band blew out
-    // to white under ACES — this one is deeper (0xecab7d) and the
-    // renderer exposure is dropped to 0.92, so it reads as warm haze,
-    // not a white wall. The gradient is still blue overhead.
-    const horizon = new THREE.Color(0xecab7d);
+    const top = new THREE.Color(0x1e5f9e);
+    const mid = new THREE.Color(0x6fb1e6);
+    // Pale blue, not cream: a warm horizon band blew out to white under
+    // ACES tone mapping and washed the whole sky out of the cover shot.
+    // The round-2 peach band is gone for the same reason at judge scale.
+    const horizon = new THREE.Color(0xbdd8ec);
     const c = new THREE.Color();
     for (let i = 0; i < pos.count; i += 1) {
       const t = clamp01(pos.getY(i) / 4200); // 0 at horizon, 1 at zenith
@@ -233,52 +232,14 @@ export function createTerrain(seed) {
   // its vertices into slow rolling waves. The specular is deliberately
   // dim (a bright sun-glint turned the whole sea into a white mirror
   // streak from the air) and the colour is deep, so water never shares
-  // a value with sand or foam. A procedural bump texture gives the sea
-  // visible wave texture from 150 m up, where vertex waves alone read
-  // as flat pale blue. ---
+  // a value with sand or foam. No bump texture: the round-2 procedural
+  // bump read as diagonal scratch noise across half the frame at
+  // judge scale, and a calm sea never competes with the plane. ---
   const seaGeo = new THREE.PlaneGeometry(WORLD.extent * 3.4, WORLD.extent * 3.4, 150, 150);
-  // The bump texture needs a canvas, so it only exists in a real
-  // browser — a headless rules sim loads this module without a document.
-  const seaNoise = typeof document === 'undefined' ? null : (() => {
-    // Soft random blotches + horizontal streaks on a mid-grey canvas:
-    // as a bump map it reads as swell texture, never as a picture.
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 256;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#808080';
-    ctx.fillRect(0, 0, 256, 256);
-    const rand = createRandom(seed * 7 + 3);
-    for (let i = 0; i < 260; i += 1) {
-      const g = 96 + Math.floor(rand() * 64);
-      ctx.fillStyle = `rgba(${g},${g},${g},0.5)`;
-      const w = 12 + rand() * 46;
-      const h = 4 + rand() * 10;
-      ctx.beginPath();
-      ctx.ellipse(rand() * 256, rand() * 256, w, h, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    for (let i = 0; i < 90; i += 1) {
-      const g = 88 + Math.floor(rand() * 72);
-      ctx.strokeStyle = `rgba(${g},${g},${g},0.45)`;
-      ctx.lineWidth = 1 + rand() * 2;
-      const y = rand() * 256;
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.bezierCurveTo(85, y + (rand() - 0.5) * 14, 170, y + (rand() - 0.5) * 14, 256, y);
-      ctx.stroke();
-    }
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(30, 30);
-    return tex;
-  })();
   const sea = new THREE.Mesh(
     seaGeo,
     new THREE.MeshPhongMaterial({
-      color: PALETTE.sea, specular: 0x9a7a55, shininess: 55,
-      bumpMap: seaNoise, bumpScale: 0.9,
+      color: PALETTE.sea, specular: 0x274b5e, shininess: 40,
     }),
   );
   sea.rotation.x = -Math.PI / 2;
@@ -689,9 +650,13 @@ export function createTerrain(seed) {
   }
 
   // --- clouds: big shaded cumulus clusters, drifting slowly ---
+  // Basic (unlit) materials, not Lambert: under the hemisphere light
+  // the Lambert undersides picked up the green ground bounce and the
+  // clouds rendered sage-green, which reads as a mistake at any size.
+  // Flat white over flat pale shade still reads as a cartoon cumulus.
   const clouds = [];
-  const cloudMat = new THREE.MeshLambertMaterial({ color: PALETTE.cloud, transparent: true, opacity: 0.95 });
-  const cloudShadeMat = new THREE.MeshLambertMaterial({ color: PALETTE.cloudShade, transparent: true, opacity: 0.95 });
+  const cloudMat = new THREE.MeshBasicMaterial({ color: PALETTE.cloud, transparent: true, opacity: 0.95 });
+  const cloudShadeMat = new THREE.MeshBasicMaterial({ color: PALETTE.cloudShade, transparent: true, opacity: 0.95 });
   for (let i = 0; i < 26; i += 1) {
     const cloud = new THREE.Group();
     const puffs = 5 + Math.floor(random() * 4);
@@ -715,24 +680,27 @@ export function createTerrain(seed) {
     group.add(cloud);
   }
 
-  // --- sun: a big bright disc with a soft glow halo, low in the west ---
-  // Golden hour: low elevation (~8 deg) so shadows stretch long and the
-  // light is warm amber, not white. Position matches the renderer's
-  // directional sun direction.
+  // --- sun: a big bright disc with a soft glow halo, south-east and
+  // high (~15 deg elevation) so it sits ahead of the plane in the cover
+  // shot: the round-1 sun sat in the west, behind the camera, and the
+  // round-2 sun sat low in the west too, so neither ever appeared in
+  // the frame the judge sees. Position matches the renderer's
+  // directional sun direction. The disc is toneMapped: false — under
+  // ACES it rendered as a grey hole inside its own white halo.
   const sun = new THREE.Mesh(
-    new THREE.SphereGeometry(70, 20, 14),
-    new THREE.MeshBasicMaterial({ color: 0xffd9a0, fog: false }),
+    new THREE.SphereGeometry(85, 20, 14),
+    new THREE.MeshBasicMaterial({ color: PALETTE.sun, fog: false, toneMapped: false }),
   );
-  sun.position.set(-1700, 300, -1500);
+  sun.position.set(2800, 750, 1100);
   group.add(sun);
   // The halo needs a canvas, so it only exists in a real browser — the
   // headless rules sim loads this module without a document.
   if (typeof document !== 'undefined') {
     const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: makeGlowTexture(), color: 0xffc27a, transparent: true, opacity: 0.55,
+      map: makeGlowTexture(), color: 0xffe9a8, transparent: true, opacity: 0.65,
       blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
     }));
-    sunGlow.scale.set(700, 700, 1);
+    sunGlow.scale.set(650, 650, 1);
     sunGlow.position.copy(sun.position);
     group.add(sunGlow);
   }

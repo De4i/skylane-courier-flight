@@ -208,6 +208,11 @@ export function missionStart(terrain) {
 /** Where the plane starts for the landing shot: already airborne on final. */
 export function landingStart(terrain) {
   const r = terrain.farRunway;
+  // 90 m south of the centreline, heading east: the offset is what
+  // makes the still work — the correcting turn puts her at a slight
+  // angle to the strip, so the chase camera sees her flank, canopy and
+  // fin instead of a dead-axis slab. A centreline start was tried and
+  // gave exactly that toy look.
   return { x: r.x - 650, y: r.alt + 75, z: r.z + 90, heading: 0 };
 }
 

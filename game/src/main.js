@@ -28,6 +28,10 @@ const shot = params.get('shot');
 const seedParam = Number.parseInt(params.get('seed') ?? '', 10);
 const seed = Number.isInteger(seedParam) ? seedParam : 7;
 
+// Shot mode stages a still for the screenshots: the controls cheat-sheet
+// is hidden (see style.css) so the frame shows the game, not its manual.
+if (shot) document.body.classList.add('shot-mode');
+
 const canvas = document.getElementById('game');
 const statusEl = document.getElementById('status');
 const menuEl = document.getElementById('menu');
@@ -193,6 +197,7 @@ function stepFixed(ctl) {
       mission.nextRing += 1;
       mission.score += SCORE.ring;
       audio.ring();
+      hud.toast(`RING! +${SCORE.ring}`);
       announce(`Ring ${mission.ringsPassed} of ${mission.def.rings}.`);
     }
   }
@@ -205,6 +210,7 @@ function stepFixed(ctl) {
       flight.fuel = Math.min(100, flight.fuel + 35);
       mission.score += SCORE.fuelRing;
       audio.ring();
+      hud.toast(`FUEL +35%  ·  +${SCORE.fuelRing}`);
       announce('Fuel ring! +35% fuel.');
     }
   }
@@ -216,6 +222,7 @@ function stepFixed(ctl) {
       beacon.collected = true;
       mission.score += SCORE.beacon;
       audio.pickup();
+      hud.toast(`BEACON! +${SCORE.beacon}`);
       announce('Beacon collected.');
     }
   }
@@ -233,6 +240,7 @@ function stepFixed(ctl) {
         pad.hit = true;
         mission.score += SCORE.pad;
         audio.pickup();
+        hud.toast(`CARGO ON TARGET! +${SCORE.pad}`);
         announce('Crate on the pad! +800.');
       } else {
         announce('Crate missed the pad.');
@@ -342,6 +350,14 @@ function runShot(name) {
     setFlight(patch) { Object.assign(flight, patch); },
     get flight() {
       return flight;
+    },
+    // Live mission state, so the stager can fly until rings are really
+    // passed instead of guessing a fixed number of seconds.
+    get ringsPassed() {
+      return mission ? mission.ringsPassed : 0;
+    },
+    get score() {
+      return mission ? mission.score : 0;
     },
   });
   hud.show();

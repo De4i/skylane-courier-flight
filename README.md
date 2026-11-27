@@ -6,7 +6,7 @@
 
 A 3D low-poly island-hopping courier flight game, built for make.fun's “Make the best flight game” bounty, $500 in USDC.
 
-You fly a little orange courier plane over a seeded archipelago of blue sea, green islands, white clouds and low sun: thread glowing sky rings, drop supply crates on island pads, collect stranded beacons, outrun a storm, and bring her home onto a striped island runway. A six-mission campaign with level select, saved progress, best times and gold/silver/bronze medals — all offline, no accounts, no network.
+You fly a little orange courier plane over a seeded archipelago of blue sea, green islands, white clouds and a bright midday sun: thread glowing sky rings, drop supply crates on island pads, collect stranded beacons, outrun a storm, and bring her home onto a striped island runway. A six-mission campaign with level select, saved progress, best times and gold/silver/bronze medals — all offline, no accounts, no network. Scoring pops a big "RING! +500" toast on screen, and the HUD shows live altitude, speed, heading, throttle, fuel, hull, timer and score.
 
 ## Run it
 

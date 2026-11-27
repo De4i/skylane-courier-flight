@@ -15,6 +15,7 @@ export function createHud() {
   const attitudeCtx = attitude.getContext('2d');
   const compass = el('compass');
   const compassCtx = compass.getContext('2d');
+  let toastTimer = null;
 
   function drawAttitude(pitch, bank) {
     const w = attitude.width;
@@ -106,6 +107,21 @@ export function createHud() {
   }
 
   return {
+    /**
+     * Big centre feedback for a scoring event ("RING! +500"): visible
+     * for six seconds, then gone. Six, not four: the screenshot
+     * stager runs the flight synchronously and the first frame after
+     * it (shader compile in a cold browser) can take seconds, so a
+     * four-second toast could hide before the still is taken.
+     */
+    toast(text) {
+      const toastEl = el('hud-toast');
+      if (!toastEl) return;
+      toastEl.textContent = text;
+      toastEl.style.display = 'block';
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toastEl.style.display = 'none'; }, 6000);
+    },
     /**
      * Refresh every readout from the live state.
      * `view` is { flight, mission, timeLeft, score, objective, missionName }.

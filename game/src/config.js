@@ -13,7 +13,9 @@ export const WORLD = {
   fogNear: 1500,
   fogFar: 5200,
   skyTop: '#2f6fb8',
-  fogColour: '#9ec2de',
+  // Warm golden-hour haze, not cold blue: the fog tints distant islands
+  // and sea toward a soft peach instead of washing them toward pale blue.
+  fogColour: '#d6bfa5',
 };
 
 export const PLANE = {
@@ -76,8 +78,8 @@ export const PALETTE = {
   rockDark: 0x6b655a,
   runway: 0x33383f,
   runwayLine: 0xf2f2e8,
-  cloud: 0xffffff,
-  cloudShade: 0xd7e4ef,
+  cloud: 0xfff2dc,
+  cloudShade: 0xeec39e,
   sun: 0xfff3c4,
   fuselage: 0xf7f3e8,
   fuselageDark: 0xd96a1e,

@@ -206,11 +206,13 @@ export function createTerrain(seed) {
     const skyGeo = new THREE.SphereGeometry(4200, 28, 18);
     const pos = skyGeo.attributes.position;
     const colours = new Float32Array(pos.count * 3);
-    const top = new THREE.Color(0x1e5f9e);
-    const mid = new THREE.Color(0x6fb1e6);
-    // Pale blue, not cream: a warm horizon band blew out to white under
-    // ACES tone mapping and washed the whole sky out of the cover shot.
-    const horizon = new THREE.Color(0xbdd8ec);
+    const top = new THREE.Color(0x2a5da8);
+    const mid = new THREE.Color(0x86b7e2);
+    // Warm peach horizon for golden hour. The old cream band blew out
+    // to white under ACES — this one is deeper (0xecab7d) and the
+    // renderer exposure is dropped to 0.92, so it reads as warm haze,
+    // not a white wall. The gradient is still blue overhead.
+    const horizon = new THREE.Color(0xecab7d);
     const c = new THREE.Color();
     for (let i = 0; i < pos.count; i += 1) {
       const t = clamp01(pos.getY(i) / 4200); // 0 at horizon, 1 at zenith
@@ -231,12 +233,52 @@ export function createTerrain(seed) {
   // its vertices into slow rolling waves. The specular is deliberately
   // dim (a bright sun-glint turned the whole sea into a white mirror
   // streak from the air) and the colour is deep, so water never shares
-  // a value with sand or foam. ---
+  // a value with sand or foam. A procedural bump texture gives the sea
+  // visible wave texture from 150 m up, where vertex waves alone read
+  // as flat pale blue. ---
   const seaGeo = new THREE.PlaneGeometry(WORLD.extent * 3.4, WORLD.extent * 3.4, 150, 150);
+  // The bump texture needs a canvas, so it only exists in a real
+  // browser — a headless rules sim loads this module without a document.
+  const seaNoise = typeof document === 'undefined' ? null : (() => {
+    // Soft random blotches + horizontal streaks on a mid-grey canvas:
+    // as a bump map it reads as swell texture, never as a picture.
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(0, 0, 256, 256);
+    const rand = createRandom(seed * 7 + 3);
+    for (let i = 0; i < 260; i += 1) {
+      const g = 96 + Math.floor(rand() * 64);
+      ctx.fillStyle = `rgba(${g},${g},${g},0.5)`;
+      const w = 12 + rand() * 46;
+      const h = 4 + rand() * 10;
+      ctx.beginPath();
+      ctx.ellipse(rand() * 256, rand() * 256, w, h, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    for (let i = 0; i < 90; i += 1) {
+      const g = 88 + Math.floor(rand() * 72);
+      ctx.strokeStyle = `rgba(${g},${g},${g},0.45)`;
+      ctx.lineWidth = 1 + rand() * 2;
+      const y = rand() * 256;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.bezierCurveTo(85, y + (rand() - 0.5) * 14, 170, y + (rand() - 0.5) * 14, 256, y);
+      ctx.stroke();
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(30, 30);
+    return tex;
+  })();
   const sea = new THREE.Mesh(
     seaGeo,
     new THREE.MeshPhongMaterial({
-      color: PALETTE.sea, specular: 0x274b5e, shininess: 40,
+      color: PALETTE.sea, specular: 0x9a7a55, shininess: 55,
+      bumpMap: seaNoise, bumpScale: 0.9,
     }),
   );
   sea.rotation.x = -Math.PI / 2;
@@ -465,6 +507,7 @@ export function createTerrain(seed) {
 
   // --- runways: dark strip, white centre dashes, threshold bars, glowing
   // edge lights, windsock, plus a hangar and control hut at home. ---
+  let lighthouse = null;
   function buildRunway(cx, cz, headingRad, isHome) {
     const runwayGroup = new THREE.Group();
     const strip = new THREE.Mesh(
@@ -544,6 +587,64 @@ export function createTerrain(seed) {
         drum.castShadow = true;
         runwayGroup.add(drum);
       }
+      // Lighthouse by the far threshold, on the -Z side: red-and-white
+      // striped tower with a warm lamp and a rotating beam. It ties to
+      // the Beacon Rescue mission and gives the home airfield a landmark
+      // the takeoff and landing shots can actually see.
+      const lh = new THREE.Group();
+      const whiteMat = lambert(0xf7f3e8);
+      const redMat = lambert(0xe4572e);
+      const seg1 = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.2, 6, 12), whiteMat);
+      seg1.position.y = 3;
+      seg1.castShadow = true;
+      lh.add(seg1);
+      const seg2 = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, 6, 12), redMat);
+      seg2.position.y = 9;
+      seg2.castShadow = true;
+      lh.add(seg2);
+      const seg3 = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 2.2, 6, 12), whiteMat);
+      seg3.position.y = 15;
+      seg3.castShadow = true;
+      lh.add(seg3);
+      const gallery = new THREE.Mesh(new THREE.CylinderGeometry(3.0, 3.0, 1, 12), lambert(0x2c343c));
+      gallery.position.y = 18.5;
+      lh.add(gallery);
+      const lamp = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.6, 1.6, 3, 10),
+        new THREE.MeshBasicMaterial({ color: 0xffe9a8 }),
+      );
+      lamp.position.y = 20.5;
+      lh.add(lamp);
+      const lhRoof = new THREE.Mesh(new THREE.ConeGeometry(2.2, 2.6, 10), redMat);
+      lhRoof.position.y = 23.3;
+      lh.add(lhRoof);
+      if (typeof document !== 'undefined') {
+        const lampGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+          map: makeGlowTexture(), color: 0xffd27a, transparent: true, opacity: 0.7,
+          blending: THREE.AdditiveBlending, depthWrite: false,
+        }));
+        lampGlow.scale.set(36, 36, 1);
+        lampGlow.position.y = 20.5;
+        lh.add(lampGlow);
+      }
+      // Rotating beam: a long additive cone, apex at the lamp, base
+      // outward. The renderer spins this group around Y.
+      const beam = new THREE.Group();
+      beam.position.y = 20.5;
+      const beamCone = new THREE.Mesh(
+        new THREE.ConeGeometry(7, 110, 12, 1, true),
+        new THREE.MeshBasicMaterial({
+          color: 0xffe9a8, transparent: true, opacity: 0.16,
+          blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+        }),
+      );
+      beamCone.rotation.z = -Math.PI / 2; // apex points +X, base -X
+      beamCone.position.x = -55; // apex sits at the lamp
+      beam.add(beamCone);
+      lh.add(beam);
+      lh.position.set(RUNWAY.length / 2 - 55, 0, -(RUNWAY.width / 2 + 30));
+      runwayGroup.add(lh);
+      lighthouse = { beam, lamp };
     }
     // Control hut: small building with a glass band and an antenna mast.
     const hut = new THREE.Group();
@@ -615,23 +716,26 @@ export function createTerrain(seed) {
   }
 
   // --- sun: a big bright disc with a soft glow halo, low in the west ---
+  // Golden hour: low elevation (~8 deg) so shadows stretch long and the
+  // light is warm amber, not white. Position matches the renderer's
+  // directional sun direction.
   const sun = new THREE.Mesh(
     new THREE.SphereGeometry(70, 20, 14),
-    new THREE.MeshBasicMaterial({ color: PALETTE.sun, fog: false }),
+    new THREE.MeshBasicMaterial({ color: 0xffd9a0, fog: false }),
   );
-  sun.position.set(-1500, 620, -1900);
+  sun.position.set(-1700, 300, -1500);
   group.add(sun);
   // The halo needs a canvas, so it only exists in a real browser — the
   // headless rules sim loads this module without a document.
   if (typeof document !== 'undefined') {
     const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: makeGlowTexture(), color: 0xffe9a8, transparent: true, opacity: 0.6,
+      map: makeGlowTexture(), color: 0xffc27a, transparent: true, opacity: 0.55,
       blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
     }));
-    sunGlow.scale.set(550, 550, 1);
+    sunGlow.scale.set(700, 700, 1);
     sunGlow.position.copy(sun.position);
     group.add(sunGlow);
   }
 
-  return { group, groundHeight, isRunway, homeRunway, farRunway, islands, clouds, sun, sea, seaBase };
+  return { group, groundHeight, isRunway, homeRunway, farRunway, islands, clouds, sun, sea, seaBase, lighthouse };
 }

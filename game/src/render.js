@@ -38,26 +38,29 @@ export function createRenderer(canvas, terrain) {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputEncoding = THREE.sRGBEncoding;
   // Filmic tone mapping for a rich, non-washed-out picture, and real
-  // shadows from the low sun so the world has depth.
+  // shadows from the low sun so the world has depth. Exposure 0.92, not
+  // 1.0: golden hour puts a warm horizon and a low sun in frame, and
+  // 1.0 blew the sky out white the last time a warm band was tried.
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
+  renderer.toneMappingExposure = 0.92;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87bfe8);
+  scene.background = new THREE.Color(0x7fb0dd);
   scene.fog = new THREE.Fog(new THREE.Color(WORLD.fogColour).getHex(), WORLD.fogNear, WORLD.fogFar);
   scene.add(terrain.group);
 
-  // Hemisphere light: blue sky from above, warm ground bounce from below.
-  // 0.7, not 0.85: the stronger fill washed the grass to pale mint and
-  // tinted the white wings green from underneath.
-  const hemi = new THREE.HemisphereLight(0xbfd9f2, 0x4a7a52, 0.7);
+  // Hemisphere light: warm golden sky from above, warm ground bounce
+  // from below. 0.6, not 0.85: the stronger fill washed the grass to
+  // pale mint and tinted the white wings green from underneath.
+  const hemi = new THREE.HemisphereLight(0xffd9a8, 0x5c6b48, 0.6);
   scene.add(hemi);
-  // The sun: warm directional light with a shadow camera that follows
-  // the plane, so the plane's shadow stays in frame wherever she flies.
-  const sunDir = new THREE.Vector3(-1500, 620, -1900).normalize();
-  const sunLight = new THREE.DirectionalLight(0xffeecf, 1.5);
+  // The sun: warm amber directional light, LOW (about 8 deg elevation)
+  // in the west, so shadows stretch long across the islands. The
+  // direction must match the sun disc mesh in terrain.js.
+  const sunDir = new THREE.Vector3(-1700, 300, -1500).normalize();
+  const sunLight = new THREE.DirectionalLight(0xffc98a, 1.7);
   sunLight.castShadow = true;
   sunLight.shadow.mapSize.set(2048, 2048);
   sunLight.shadow.camera.left = -280;
@@ -335,17 +338,20 @@ export function createRenderer(canvas, terrain) {
         sunLight.target.updateMatrixWorld();
       }
 
-      // Rolling waves: displace the sea grid with two slow sine swells.
-      // The sea plane is rotated -PI/2 about X, so its local X is world X
-      // and its local Y is world -Z; local Z is world height.
+      // Rolling waves: displace the sea grid with slow sine swells.
+      // Amplitudes raised (1.4/0.8 -> 1.9/1.1) plus a tighter third
+      // swell, so the sea foreground reads as textured water from
+      // 150 m, not flat pale blue. The sea's bump texture does the
+      // fine detail; the vertices do the swell shapes.
       if (terrain.sea && terrain.seaBase) {
         const pos = terrain.sea.geometry.attributes.position;
         const base = terrain.seaBase;
         for (let i = 0; i < pos.count; i += 1) {
           const wx = base[i * 3];
           const wz = -base[i * 3 + 1];
-          pos.array[i * 3 + 2] = 1.4 * Math.sin(wx * 0.055 + time * 0.9) * Math.sin(wz * 0.043 - time * 0.7)
-            + 0.8 * Math.sin((wx + wz) * 0.03 + time * 1.3);
+          pos.array[i * 3 + 2] = 1.9 * Math.sin(wx * 0.055 + time * 0.9) * Math.sin(wz * 0.043 - time * 0.7)
+            + 1.1 * Math.sin((wx + wz) * 0.03 + time * 1.3)
+            + 0.4 * Math.sin(wx * 0.11 - time * 1.7) * Math.sin(wz * 0.09 + time * 1.4);
         }
         pos.needsUpdate = true;
         terrain.sea.geometry.computeVertexNormals();
@@ -404,6 +410,11 @@ export function createRenderer(canvas, terrain) {
       for (const cloud of terrain.clouds) {
         cloud.position.x += cloud.userData.speed * dt;
         if (cloud.position.x > WORLD.extent + 100) cloud.position.x = -WORLD.extent - 100;
+      }
+
+      // The lighthouse beam sweeps slowly around the home airfield.
+      if (terrain.lighthouse) {
+        terrain.lighthouse.beam.rotation.y = time * 0.9;
       }
 
       // Rain follows the plane in a storm.

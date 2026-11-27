@@ -159,24 +159,19 @@ export function createAircraft() {
   spinner.rotation.z = -Math.PI / 2;
   spinner.position.x = 0.5;
   prop.add(spinner);
-  // Blades are pale grey, not near-black: a dark blade frozen mid-spin
-  // reads as a stick across the fuselage from the chase camera, which is
-  // exactly the look this overhaul is removing. The disc does the work.
-  const bladeMat = new THREE.MeshLambertMaterial({ color: 0x8b98a5 });
-  for (const side of [-1, 1]) {
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.16, 5.4, 0.45), bladeMat);
-    blade.position.set(0, side * 2.7, 0);
-    blade.rotation.x = 0.35;
-    blade.castShadow = true;
-    prop.add(blade);
-  }
+  // No blade meshes: the two pale blades froze mid-spin as a white
+  // vertical line above/below the nose in every still (shots 1-3),
+  // even after the disc was faded to 0.05 — a spinning prop in a
+  // still frame is a disc, and the disc alone plus the spinner cone
+  // reads as a prop without ever drawing a line.
   const disc = new THREE.Mesh(
     new THREE.CircleGeometry(3.0, 28),
     new THREE.MeshBasicMaterial({
-      // Mid grey-blue, not near-white: edge-on from the chase camera the
-      // disc is a thin line below the nose, and a bright line reads as
-      // the old prop stick. Faint is correct for a spinning prop.
-      color: 0x7d99ad, transparent: true, opacity: 0.12,
+      // Dark and very faint: edge-on from the chase camera the disc is
+      // a thin line below the nose, and even a mid grey-blue line at
+      // 0.12 opacity still read as the old prop stick in shots 1-3.
+      // At 0.05 it is a whisper of a spinning prop, not a line.
+      color: 0x5a6b78, transparent: true, opacity: 0.05,
       side: THREE.DoubleSide, depthWrite: false,
     }),
   );
@@ -241,9 +236,11 @@ export function createAircraft() {
       if (starboard) starboard.visible = !blink;
       const strobeMesh = group.getObjectByName('strobe');
       if (strobeMesh) strobeMesh.visible = Math.sin(time * 6) > 0.85;
-      // The blur disc only reads while the prop is turning.
+      // The blur disc only reads while the prop is turning — and only
+      // barely: 0.05 is the ceiling, or its edge lines up as a stick
+      // below the nose in the stills.
       const discMesh = group.getObjectByName('propDisc');
-      if (discMesh) discMesh.material.opacity = flight.throttle > 0.05 ? 0.12 : 0.06;
+      if (discMesh) discMesh.material.opacity = flight.throttle > 0.05 ? 0.05 : 0.03;
     },
   };
 }
